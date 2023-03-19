@@ -141,7 +141,7 @@
             <mainClass>${main.verticle}</mainClass>
           </container>
           <from>
-            <image>gcr.io/distroless/java17-debian11</image>
+            <image>eclipse-temurin:17-jdk</image>
             <platforms>
               <platform>
                 <architecture>amd64</architecture>
