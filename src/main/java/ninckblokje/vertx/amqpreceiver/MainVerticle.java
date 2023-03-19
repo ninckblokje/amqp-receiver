@@ -43,6 +43,8 @@ public class MainVerticle extends AbstractVerticle {
 
   private final static String amqpReceiverHost = "AMQP_RECEIVER_HOST";
   private final static String amqpReceiverPort = "AMQP_RECEIVER_PORT";
+  private final static String amqpReceiverSslEnabled = "AMQP_RECEIVER_SSL_ENABLED";
+  private final static String amqpReceiverTimeout = "AMQP_RECEIVER_TIMEOUT";
   private final static String amqpReceiverUsername = "AMQP_RECEIVER_USERNAME";
   private final static String amqpReceiverPassword = "AMQP_RECEIVER_PASSWORD";
 
@@ -62,6 +64,8 @@ public class MainVerticle extends AbstractVerticle {
         .put("keys", new JsonArray()
           .add(amqpReceiverHost)
           .add(amqpReceiverPort)
+          .add(amqpReceiverSslEnabled)
+          .add(amqpReceiverTimeout)
           .add(amqpReceiverUsername)
           .add(amqpReceiverPassword)
           .add(amqpReceiverAddress)
@@ -86,11 +90,21 @@ public class MainVerticle extends AbstractVerticle {
       .setHost(entries.getString(amqpReceiverHost, "localhost"))
       .setPort(entries.getInteger(amqpReceiverPort, 5672))
       .setUsername(entries.getString(amqpReceiverUsername))
-      .setPassword(entries.getString(amqpReceiverPassword));
+      .setPassword(entries.getString(amqpReceiverPassword))
+      .setSsl(entries.getBoolean(amqpReceiverSslEnabled, false))
+      .setConnectTimeout(entries.getInteger(amqpReceiverTimeout, 5000))
+      .setIdleTimeout(entries.getInteger(amqpReceiverTimeout, 5000))
+      .setSslHandshakeTimeout(entries.getInteger(amqpReceiverTimeout, 5000));
   }
 
   private void startAmqpClient(Promise<Void> startPromise, String address, String addressType, AmqpClientOptions amqpClientOptions) {
     var amqpClient = AmqpClient.create(vertx, amqpClientOptions);
+    logger.atInfo()
+      .setMessage("Atttempting to create AMQP connection to {}:{} as {}")
+      .addArgument(amqpClientOptions.getHost())
+      .addArgument(amqpClientOptions.getPort())
+      .addArgument(amqpClientOptions.getUsername())
+      .log();
 
     amqpClient.connect(ar -> {
       if (ar.succeeded()) {
@@ -114,13 +128,20 @@ public class MainVerticle extends AbstractVerticle {
       amqpReceiverOptions.addCapability(addressType);
     }
 
+    logger.atInfo()
+      .setMessage("Attempting to receiving messages from address {} (type {})")
+      .addArgument(address)
+      .addArgument(addressType)
+      .log();
+
     conn.createReceiver(address, amqpReceiverOptions, done -> {
       if (done.succeeded()) {
         var receiver = done.result();
         receiver.handler(this::handleMessage);
         logger.atInfo()
-          .setMessage("Receiving messages from address {}")
+          .setMessage("Receiving messages from address {} (type {})")
           .addArgument(address)
+          .addArgument(addressType)
           .log();
         startPromise.complete();
       } else {
